@@ -30,11 +30,10 @@ class MyApp extends StatelessWidget {
 }
 
 class TrackerItem extends StatefulWidget {
-  const TrackerItem({Key? key, required this.name, required this.value, required this.type}) : super(key: key);
+  const TrackerItem({Key? key, required this.name, required this.value}) : super(key: key);
 
   final String name;
   final int value;
-  final String type;
 
   @override
   State<TrackerItem> createState() => _TrackerItemState();
@@ -45,10 +44,58 @@ class _TrackerItemState extends State<TrackerItem> {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Text(widget.name)
-      ],
+    var value = widget.value;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 32.0),
+      child: Column(
+        children: [
+          Text(
+            widget.name,
+            style: const TextStyle(fontSize: 24),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Ink(
+                decoration: const ShapeDecoration(
+                  color: Colors.lightBlue,
+                  shape: CircleBorder(),
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.remove),
+                  color: Colors.white,
+                  tooltip: 'Decrease',
+                  onPressed: () {
+                    setState(() {
+                      counter--;
+                    });
+                  },
+                )
+              ),
+              Text(
+                '$counter/$value',
+                style: const TextStyle(fontSize: 20),
+              ),
+              Ink(
+                decoration: const ShapeDecoration(
+                  color: Colors.lightBlue,
+                  shape: CircleBorder(),
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.add),
+                  color: Colors.white,
+                  tooltip: 'Decrease',
+                  onPressed: () {
+                    setState(() {
+                      counter++;
+                    });
+                  },
+                )
+              ),
+            ],
+          )
+        ],
+      )
     );
   }
 }
@@ -65,9 +112,7 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _valueController = TextEditingController();
-  List<TrackerItem> trackers = [
-    const TrackerItem(name: "Coke", value: 3, type: "limit"),
-    const TrackerItem(name: "Water", value: 8, type: "goal")
+  List<Widget> trackers = [
   ];
 
   @override
@@ -79,9 +124,18 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void _addTracker(BuildContext context) {
+    int timestamp = DateTime.now().millisecondsSinceEpoch;
+    TrackerItem newTrackerItem = TrackerItem(name: _nameController.text, value: int.parse(_valueController.text), key: Key("$timestamp"));
+    setState(() {
+      trackers.add(newTrackerItem);
+    });
+
     _nameController.clear();
     _valueController.clear();
     Navigator.pop(context);
+  }
+
+  void _resetAllTrackers() {
   }
 
   void _showAddTrackerModal() {
@@ -89,57 +143,53 @@ class _MyHomePageState extends State<MyHomePage> {
       context: context,
       isScrollControlled: true,
       builder: (BuildContext context) {
-        return SingleChildScrollView(
+        return Container(
+          padding:
+              EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
           child: Container(
-            padding:
-                EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-            child: Container(
-              padding: const EdgeInsets.all(32),
-              color: Colors.amber,
-              child: Center(
-                child: Column(
+            padding: const EdgeInsets.all(32),
+            color: Colors.amber,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                const Text(
+                  'Add Tracker',
+                  style: TextStyle(fontSize: 24)
+                ),
+                TextField(
+                  controller: _nameController,
+                  decoration: const InputDecoration(
+                    border: UnderlineInputBorder(),
+                    labelText: 'Name',
+                  )
+                ),
+                TextField(
+                  controller: _valueController,
+                  decoration: const InputDecoration(
+                    border: UnderlineInputBorder(),
+                    labelText: 'Goal/Limit',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 32),
+                Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    const Text(
-                      'Add Tracker',
-                      style: TextStyle(fontSize: 24)
+                  children: [
+                    ElevatedButton(
+                      child: const Text('OK'),
+                      onPressed: () => _addTracker(context),
                     ),
-                    TextField(
-                      controller: _nameController,
-                      decoration: const InputDecoration(
-                        border: UnderlineInputBorder(),
-                        labelText: 'Name',
-                      )
-                    ),
-                    TextField(
-                      controller: _valueController,
-                      decoration: const InputDecoration(
-                        border: UnderlineInputBorder(),
-                        labelText: 'Goal/Limit',
-                      ),
-                      keyboardType: TextInputType.number,
-                    ),
-                    const SizedBox(height: 32),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        ElevatedButton(
-                          child: const Text('OK'),
-                          onPressed: () => _addTracker(context),
-                        ),
-                        const SizedBox(width: 32),
-                        ElevatedButton(
-                          child: const Text('Cancel'),
-                          onPressed: () => Navigator.pop(context),
-                        )
-                      ],
+                    const SizedBox(width: 32),
+                    ElevatedButton(
+                      child: const Text('Cancel'),
+                      onPressed: () => Navigator.pop(context),
                     )
                   ],
-                ),
-              ),
-            )
+                )
+              ],
+            ),
           )
         );
       },
@@ -160,9 +210,21 @@ class _MyHomePageState extends State<MyHomePage> {
         // the App.build method, and use it to set our appbar title.
         title: Text(widget.title),
       ),
-      body: ListView(
+      body: Container(
         padding: const EdgeInsets.all(32),
-        children: trackers,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ElevatedButton(
+              child: const Text('Reset All'),
+              onPressed: _resetAllTrackers,
+            ),
+            const SizedBox(height: 32),
+            ListView(
+              children: trackers
+            )
+          ]
+        )
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showAddTrackerModal,
