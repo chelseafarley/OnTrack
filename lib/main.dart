@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 void main() {
   runApp(const MyApp());
@@ -30,17 +32,49 @@ class MyApp extends StatelessWidget {
 }
 
 class TrackerItem extends StatefulWidget {
-  const TrackerItem({Key? key, required this.name, required this.value}) : super(key: key);
+  TrackerItem({Key? key, required this.name, required this.value, this.counter = 0}) : super(key: key);
 
   final String name;
   final int value;
+  int counter;
 
   @override
   State<TrackerItem> createState() => _TrackerItemState();
+
+  String toJson() {
+    return jsonEncode({
+      "name": name,
+      "value": value,
+      "counter": counter
+    });
+  }
 }
 
 class _TrackerItemState extends State<TrackerItem> {
   int counter = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTracker();
+  }
+
+  void _loadTracker() async {
+    final prefs = await SharedPreferences.getInstance();
+    final tracker = json.decode(prefs.get(widget.name).toString());
+    setState(() {
+      counter += tracker["counter"] as int;
+    });
+  }
+
+  void _saveTracker(int counterAdjustment) async {
+    final prefs = await SharedPreferences.getInstance();
+    widget.counter += counterAdjustment;
+    prefs.setString(widget.name, widget.toJson());
+    setState(() {
+      counter += counterAdjustment;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,11 +99,7 @@ class _TrackerItemState extends State<TrackerItem> {
                   icon: const Icon(Icons.remove),
                   color: Colors.white,
                   tooltip: 'Decrease',
-                  onPressed: () {
-                    setState(() {
-                      counter--;
-                    });
-                  },
+                  onPressed: () => _saveTracker(-1),
                 )
               ),
               Text(
@@ -84,12 +114,8 @@ class _TrackerItemState extends State<TrackerItem> {
                 child: IconButton(
                   icon: const Icon(Icons.add),
                   color: Colors.white,
-                  tooltip: 'Decrease',
-                  onPressed: () {
-                    setState(() {
-                      counter++;
-                    });
-                  },
+                  tooltip: 'Increase',
+                  onPressed: () => _saveTracker(1),
                 )
               ),
             ],
@@ -112,8 +138,14 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _valueController = TextEditingController();
-  List<Widget> trackers = [
+  List<TrackerItem> trackers = [
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTrackers();
+  }
 
   @override
   void dispose() {
@@ -123,19 +155,33 @@ class _MyHomePageState extends State<MyHomePage> {
     super.dispose();
   }
 
-  void _addTracker(BuildContext context) {
-    int timestamp = DateTime.now().millisecondsSinceEpoch;
-    TrackerItem newTrackerItem = TrackerItem(name: _nameController.text, value: int.parse(_valueController.text), key: Key("$timestamp"));
+  void _loadTrackers() async {
+    final prefs = await SharedPreferences.getInstance();
     setState(() {
-      trackers.add(newTrackerItem);
+      trackers = prefs.getKeys().map((key) => _getTrackerItem(prefs, key)).toList();
     });
+  }
+
+  TrackerItem _getTrackerItem(SharedPreferences prefs, String key) {
+    final map = json.decode(prefs.get(key).toString());
+    return TrackerItem(name: map["name"], value: map["value"], counter: map["counter"]);
+  }
+
+  void _saveTracker(TrackerItem newTracker) async {
+    final prefs = await SharedPreferences.getInstance();
+    prefs.setString(newTracker.name, newTracker.toJson());
+    setState(() {
+      trackers.add(newTracker);
+    });
+  }
+
+  void _addTracker(BuildContext context) {
+    TrackerItem newTrackerItem = TrackerItem(name: _nameController.text, value: int.parse(_valueController.text));
+    _saveTracker(newTrackerItem);
 
     _nameController.clear();
     _valueController.clear();
     Navigator.pop(context);
-  }
-
-  void _resetAllTrackers() {
   }
 
   void _showAddTrackerModal() {
@@ -215,14 +261,8 @@ class _MyHomePageState extends State<MyHomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            ElevatedButton(
-              child: const Text('Reset All'),
-              onPressed: _resetAllTrackers,
-            ),
             const SizedBox(height: 32),
-            ListView(
-              children: trackers
-            )
+            Column(children: trackers)
           ]
         )
       ),
