@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'dart:convert';
+import 'dart:io' show Platform;
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  MobileAds.instance.initialize();
   runApp(const MyApp());
 }
 
@@ -138,13 +142,58 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _valueController = TextEditingController();
+  InterstitialAd? _interstitialAd;
   List<TrackerItem> trackers = [
   ];
+  BannerAd? _bannerAd;
 
   @override
   void initState() {
     super.initState();
     _loadTrackers();
+
+    loadInterstitial();
+    loadBannerAd();
+  }
+
+  void loadBannerAd() {
+    _bannerAd = BannerAd(
+      adUnitId: Platform.isIOS ? "ca-app-pub-3940256099942544/2934735716" : "ca-app-pub-3940256099942544/6300978111",
+      size: AdSize.banner,
+      request: AdRequest(),
+      listener: BannerAdListener(),
+    );
+
+    _bannerAd?.load();
+  }
+
+  void loadInterstitial() {
+    String interstitialAdId = Platform.isIOS ? "ca-app-pub-3940256099942544/4411468910" : "ca-app-pub-3940256099942544/1033173712";
+
+    InterstitialAd.load(
+      adUnitId: interstitialAdId,
+      request: AdRequest(),
+      adLoadCallback: InterstitialAdLoadCallback(
+        onAdLoaded: (InterstitialAd ad) {
+          // Keep a reference to the ad so you can show it later.
+          _interstitialAd = ad;
+
+          ad.fullScreenContentCallback = FullScreenContentCallback(
+            onAdDismissedFullScreenContent: (InterstitialAd ad) {
+              ad.dispose();
+              loadInterstitial();
+            },
+            onAdFailedToShowFullScreenContent: (InterstitialAd ad, AdError error) {
+              ad.dispose();
+              loadInterstitial();
+            },
+          );
+        },
+        onAdFailedToLoad: (LoadAdError error) {
+          print('InterstitialAd failed to load: $error');
+        },
+      )
+    );
   }
 
   @override
@@ -182,6 +231,8 @@ class _MyHomePageState extends State<MyHomePage> {
     _nameController.clear();
     _valueController.clear();
     Navigator.pop(context);
+
+    _interstitialAd?.show();
   }
 
   void _showAddTrackerModal() {
@@ -262,7 +313,13 @@ class _MyHomePageState extends State<MyHomePage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const SizedBox(height: 32),
-            Column(children: trackers)
+            Column(children: trackers),
+            Container(
+              alignment: Alignment.center,
+              child: AdWidget(ad: _bannerAd!),
+              width: _bannerAd?.size.width.toDouble(),
+              height: _bannerAd?.size.height.toDouble(),
+            )
           ]
         )
       ),
